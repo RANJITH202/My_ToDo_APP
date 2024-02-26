@@ -2,81 +2,156 @@ const aysncHandler = require('express-async-handler');
 const moment = require('moment');
 const bcrypt = require('bcrypt');
 const commonHelper = require('../Helper/commonHelper');
+const User = require('../Models/userModel');
 
 const getAllUsers = aysncHandler(async (req, res) => {
   try {
-    const getAllUsers = await commonHelper.queryRunner("SELECT * FROM tbl_users", []);
-    if(getAllUsers.isError) {
-      res.status(400);
-      throw new Error("All fields are mandatory!");
-      // res.status(400).send({ message: "Error in fetching data.", data: [] , error: getAllUsers.error });
-    } else{
-      if(getAllUsers.data && getAllUsers.data.length > 0) {
-        res.status(200).send({ message: "Get all users", data: getAllUsers.data });
-      } else{
-        res.status(200).send({ message: "Get all users", data: [] });
-      }
+    const users = await User.find();
+    if(users && users.length) {
+      res.status(201).json({message: ` Users Fetched Successfully `, data: users});
+    } else {
+      throw new Error(" No Users found "); 
     }
-  } catch (error) {
-    res.status(400);
-    throw new Error("All fields are mandatory!");
-    // res.status(400).send({ message: "Exception Occurred.", data: [] , error: error });
   }
-})
+  catch(error){
+    res.status(400);
+    throw new Error(error);
+  }
+});
 
 const getUser = aysncHandler(async (req, res) => {
-  res.status(200).json({ message: "Get one user", id: req.params.id });
-})
-
-const registerUser = aysncHandler( async (req, res) => {
   try {
-    console.log(req.body);
-    const { username, email, password } = req.body;
-    if( !username || !email || !password ) {
-      // res.status(400);
-      // throw new Error("All fields are mandatory!");
-      res.status(400).send({ message: "All fields are mandatory." });
-      // throw new Error("All fields are mandatory.");
-    } 
-    const checkUser = "SELECT * FROM tbl_users WHERE username = ? OR email = ?";
-    const checkUserParams = [username, email];
-    const checkUserResult = await commonHelper.queryRunner(checkUser, checkUserParams);
-    if(checkUserResult.isError) {
-      // res.status(400);
-      // throw new Error("All fields are mandatory!");
-      res.status(400).send({ message: "Error in fetching user data.", data: [] , error: checkUserResult.error });
-    } else{
-      if(checkUserResult.data && checkUserResult.data.length > 0) {
-        // res.status(400);
-        // throw new Error("All fields are mandatory!");
-        res.status(400).send({ message: "User already exists.", data: [] });
-      } else {
-        //Hashed Password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const insertUser = "INSERT INTO tbl_users (username, password, email, created_date) VALUES (?, ?, ?, ?)";
-        const insertUserParams = [username, hashedPassword, email, moment().format('YYYY-MM-DD HH:mm:ss')];
-        const insertUserResult = await commonHelper.queryRunner(insertUser, insertUserParams);
-        if(insertUserResult.isError) {
-          // res.status(400);
-          // throw new Error("All fields are mandatory!");
-          res.status(400).send({ message: "Error in inserting data.", data: [] , error: insertUserResult.error });
-        } else{
-          if(insertUserResult.data && insertUserResult.data.affectedRows > 0) {
-            const data = {
-              id: insertUserResult.data.insertId,
-              username: username,
-              email: email
-            }
-            res.status(201).send({ message: "User Registered", data: data });
-          } else{
-            res.status(400).send({ message: "Data not inserted.", data: [] });
-          }
-        }
+    const user = await User.findById(req.params.id);
+    if(user) {
+      res.status(201).json({message: ` User Fetched Successfully `, data: user});
+    } else {
+      throw new Error(" No User found "); 
+    }
+  }
+  catch(error){
+    res.status(400);
+    throw new Error(error);
+  }
+});
+
+const registerUser = aysncHandler(async (req, res) => {
+  try {
+    const {emailId, password, firstName, lastName, role, profilePic, phone} = req.body;
+    if(!emailId || !password || !firstName || !role) {
+      res.status(400);
+      throw new Error("All fields are mandatory!");
+    }
+    const checkUser = await User.findOne({emailId});
+    if(checkUser) {
+      res.status(400);
+      throw new Error("User already exists!");
+    } else {
+      // Hashed Password
+      const hashedPassword = await bcrypt.hash(password, 10)
+      const userData = {
+        emailId, 
+        password: hashedPassword, 
+        firstName, 
+        lastName : lastName ? lastName : '', 
+        role, 
+        phone: phone ? phone : '',
+        profilePic: profilePic ? profilePic : '',
+      }
+      const createUser = await User.create(userData);
+      console.log(createUser);
+      if(createUser){
+        res.status(201).json({message: `the User ${createUser.firstName} is created`, userId: createUser._id, emailId: createUser.emailId});
+      } else{
+        res.status(400)
+        throw new Error("User not created"); 
       }
     }
-  } catch (error) {
-    
   }
-
+  catch(error){
+    res.status(400);
+    throw new Error(error);
+  }
 });
+
+const updateUser = aysncHandler(async () => {
+
+})
+
 module.exports = { getAllUsers, getUser, registerUser }
+
+// const getAllUsers = aysncHandler(async (req, res) => {
+//   try {
+//     const getAllUsers = await commonHelper.queryRunner("SELECT * FROM tbl_users", []);
+//     if(getAllUsers.isError) {
+//       res.status(400);
+//       throw new Error("All fields are mandatory!");
+//       // res.status(400).send({ message: "Error in fetching data.", data: [] , error: getAllUsers.error });
+//     } else{
+//       if(getAllUsers.data && getAllUsers.data.length > 0) {
+//         res.status(200).send({ message: "Get all users", data: getAllUsers.data });
+//       } else{
+//         res.status(200).send({ message: "Get all users", data: [] });
+//       }
+//     }
+//   } catch (error) {
+//     res.status(400);
+//     throw new Error("All fields are mandatory!");
+//     // res.status(400).send({ message: "Exception Occurred.", data: [] , error: error });
+//   }
+// })
+
+// const getUser = aysncHandler(async (req, res) => {
+//   res.status(200).json({ message: "Get one user", id: req.params.id });
+// })
+
+// const registerUser = aysncHandler( async (req, res) => {
+//   try {
+//     console.log(req.body);
+//     const { username, email, password } = req.body;
+//     if( !username || !email || !password ) {
+//       // res.status(400);
+//       // throw new Error("All fields are mandatory!");
+//       res.status(400).send({ message: "All fields are mandatory." });
+//       // throw new Error("All fields are mandatory.");
+//     } 
+//     const checkUser = "SELECT * FROM tbl_users WHERE username = ? OR email = ?";
+//     const checkUserParams = [username, email];
+//     const checkUserResult = await commonHelper.queryRunner(checkUser, checkUserParams);
+//     if(checkUserResult.isError) {
+//       // res.status(400);
+//       // throw new Error("All fields are mandatory!");
+//       res.status(400).send({ message: "Error in fetching user data.", data: [] , error: checkUserResult.error });
+//     } else{
+//       if(checkUserResult.data && checkUserResult.data.length > 0) {
+//         // res.status(400);
+//         // throw new Error("All fields are mandatory!");
+//         res.status(400).send({ message: "User already exists.", data: [] });
+//       } else {
+//         //Hashed Password
+//         const hashedPassword = await bcrypt.hash(password, 10);
+//         const insertUser = "INSERT INTO tbl_users (username, password, email, created_date) VALUES (?, ?, ?, ?)";
+//         const insertUserParams = [username, hashedPassword, email, moment().format('YYYY-MM-DD HH:mm:ss')];
+//         const insertUserResult = await commonHelper.queryRunner(insertUser, insertUserParams);
+//         if(insertUserResult.isError) {
+//           // res.status(400);
+//           // throw new Error("All fields are mandatory!");
+//           res.status(400).send({ message: "Error in inserting data.", data: [] , error: insertUserResult.error });
+//         } else{
+//           if(insertUserResult.data && insertUserResult.data.affectedRows > 0) {
+//             const data = {
+//               id: insertUserResult.data.insertId,
+//               username: username,
+//               email: email
+//             }
+//             res.status(201).send({ message: "User Registered", data: data });
+//           } else{
+//             res.status(400).send({ message: "Data not inserted.", data: [] });
+//           }
+//         }
+//       }
+//     }
+//   } catch (error) {
+//     res.status(400).send({ message: "Exception Occurred.", data: [] , error: error.message });
+//   }
+
+// });
